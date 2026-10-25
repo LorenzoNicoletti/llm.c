@@ -31,9 +31,9 @@ VAL_FRACTION = 0.1                  # fraction of the tokens held out for valida
 
 # ==============================================================================
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TEXTS_DIR = os.path.join(SCRIPT_DIR, "texts")
-DATA_DIR = os.path.join(SCRIPT_DIR, "data")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # the repo folder, one up from scripts/
+TEXTS_DIR = os.path.join(ROOT_DIR, "texts")
+DATA_DIR = os.path.join(ROOT_DIR, "data")
 MAGIC, VERSION = 20240520, 1
 
 def dataset_name(text_file):

@@ -1,10 +1,12 @@
 # Train GPT-2 on any text
 
 A small, readable project for understanding how a model like GPT-2 works and how it is trained.
-It trains on any text file (TinyShakespeare by default) in three steps: **prepare → train → generate**.
+It trains on any text file (TinyShakespeare by default) in three steps: **pre-processing → training → test**.
 
-Trimmed down from Andrej Karpathy's [llm.c](https://github.com/karpathy/llm.c). Only the
-PyTorch training path is kept; the C/CUDA engine, multi-GPU code and evals were removed.
+Trimmed down from Andrej Karpathy's [llm.c](https://github.com/karpathy/llm.c) (MIT license, see
+[LICENSE](LICENSE)). The GPT-2 model, weight loading, training loop and token file format are his work.
+This version keeps only the PyTorch training path, running on the CPU, and adds explanatory comments,
+training on any text file, a main script and a test script.
 
 ## How GPT-2 works, in short
 
@@ -23,58 +25,36 @@ PyTorch training path is kept; the C/CUDA engine, multi-GPU code and evals were 
    a little (the **AdamW** optimizer). Repeat.
 6. **Generation.** Pick a next token from the scores, append it, and repeat.
 
-All of this is in [train_gpt2.py](train_gpt2.py); the comments there walk through each part.
+All of this is in [scripts/train_gpt2.py](scripts/train_gpt2.py); the comments there walk through each part.
 
 ## Setup
 
-Requires Python 3.10+. From this folder:
+Requires Python 3.10+. [setup_env.py](setup_env.py) creates a virtual environment and downloads the packages needed for running this example (see [requirements.txt](requirements.txt)).
 
-```
-python -m venv venv
-venv\Scripts\activate          (Windows)   |   source venv/bin/activate   (macOS/Linux)
-python -m pip install -r requirements.txt
-```
-
-In VS Code, select `venv` as the interpreter (`Ctrl+Shift+P` → *Python: Select Interpreter*) so the
-Run button uses it.
-
-| Package | Why it's needed |
-|---|---|
-| `torch` | neural network library: tensors, backpropagation, optimizer |
-| `numpy` | reads and writes the token `.bin` files |
-| `tiktoken` | GPT-2 tokenizer (text → tokens) |
-| `transformers` | downloads pretrained GPT-2, saves and loads the trained model |
+Remember to activate the environment before running anything.
 
 ## Quick start
 
-Open [main.py](main.py), check the settings at the top, and run it:
+Open [main.py](main.py), check the settings at the top, and run it. With the default settings it
+tokenizes TinyShakespeare, fine-tunes GPT-2 for 50 steps, saves the model to `gpt2_model/`, and
+generates text from 4 prompts.
 
-```
-python main.py
-```
+`main.py` has three sections and each section calls one script in [scripts/](scripts/); each script can also run on its own, using the
+settings at its top or its defaults.
 
-With the default settings it tokenizes TinyShakespeare, fine-tunes GPT-2 for 50 steps, saves the model
-to `gpt2_model/`, and generates text from 4 prompts.
+### 1) Pre-processing — [prepare_data.py](scripts/prepare_data.py)
 
-`main.py` has three sections marked with `# %%`. In VS Code, each one gets a **Run Cell** button, like
-*Run Section* in MATLAB. Variables stay in memory between cells, so you can train once and re-run only
-the Test section with new prompts. (The first time, VS Code asks to install `ipykernel` into the venv.)
-
-## The three sections
-
-### 1) Pre-processing — [prepare_data.py](prepare_data.py)
-
-Put your text in the [texts/](texts/) folder (TinyShakespeare is already there) and set
+Put your text in the [texts/](texts/) folder (TinyShakespeare, from Karpathy's
+[char-rnn](https://github.com/karpathy/char-rnn), is already there) and set
 `TEXT_FILE = "my_book.txt"` in `main.py`. The tokens are written to `data/my_book/`.
 
 It tokenizes the text and writes `train.bin` (90%) and `val.bin` (10%, never trained on; used to check the
 model generalizes). Blank lines separate "documents", each one starting with an `<|endoftext|>` token.
 Any plain UTF-8 text works. More text is better: TinyShakespeare is ~340k tokens.
 
-If `data/<name>/` already exists, pre-processing is skipped (with a message) and the existing tokens are
-used. If you edit the text file, delete `data/<name>/` so it gets tokenized again.
+If `data/<name>/` already exists, pre-processing is skipped (with a message). If you edit the text file, delete `data/<name>/` so it gets tokenized again.
 
-### 2) Train — [train_gpt2.py](train_gpt2.py)
+### 2) Train — [train_gpt2.py](scripts/train_gpt2.py)
 
 `MODEL` picks the starting point:
 
@@ -82,7 +62,7 @@ used. If you edit the text file, delete `data/<name>/` so it gets tokenized agai
 |---|---|---|---|
 | `"gpt2"` (default) | OpenAI's pretrained weights | 124M params | readable text after a few dozen steps; it already knows English and learns your style |
 | `"tiny"` | random weights | ~16M params | seeing learning from zero on a CPU: babble → words → style (use ~300 steps, learning rate 1e-3) |
-| `"d12"` | random weights | 124M params | the full GPT-2 size from scratch (needs a GPU and lots of text) |
+| `"d12"` | random weights | 124M params | the full GPT-2 size from scratch (very slow on a CPU, needs lots of text) |
 
 What the output means:
 
@@ -91,7 +71,7 @@ step   10/50 | train loss 3.41 | norm 2.10 | lr 3.00e-04 | (2100 ms | 487 tok/s)
 val loss 3.52
 ```
 
-- **train loss**: how wrong the model is on the batch it just learned from (lower is better).
+- **train loss**: how wrong the model is on the batch it learned from (lower is better).
   A random model starts at about 10.8 (= ln 50257).
 - **val loss**: the same on held-out text. If train loss keeps falling but val loss rises, the model
   is memorizing instead of learning (overfitting).
@@ -99,44 +79,18 @@ val loss 3.52
 
 Each step (iteration) is one weight update, computed from `TOTAL_BATCH_SIZE` tokens. If that is more than
 `BATCH_SIZE × SEQUENCE_LENGTH`, several passes are added up first (gradient accumulation).
-`train()` has a few more options (warmup, learning rate decay, weight decay, device); see its definition.
+`train()` has a few more options (warmup, learning rate decay, weight decay); see its definition. Training always runs on the CPU.
 
 Every run starts from the chosen starting point and **overwrites** `gpt2_model/`.
 
-### 3) Test — [test_gpt2_model.py](test_gpt2_model.py)
+### 3) Test — [scripts/test_gpt2_model.py](scripts/test_gpt2_model.py)
 
 Loads `gpt2_model/` with huggingface `transformers` and continues each of the `PROMPTS`.
 `TEMPERATURE` below 1 is more predictable, above 1 more random.
 
-Each of the three files can also run on its own (`python prepare_data.py`, `python train_gpt2.py`,
-`python test_gpt2_model.py`), using the settings at its top or its defaults.
+## Further learning
 
-## Files
-
-| Path | What it is |
-|---|---|
-| `main.py` | the main script: settings, then pre-processing, training and test |
-| `prepare_data.py` | `texts/<name>.txt` → `data/<name>/train.bin`, `val.bin` |
-| `train_gpt2.py` | the GPT-2 model, data loader and training loop |
-| `test_gpt2_model.py` | load the trained model and generate text |
-| `texts/` | the text files to train on (TinyShakespeare included) |
-| `data/` | generated token files (git-ignored) |
-| `gpt2_model/` | trained model: `model.safetensors` (weights), `config.json` (shape), tokenizer files (git-ignored) |
-
-## Credits
-
-This project is a fork of [karpathy/llm.c](https://github.com/karpathy/llm.c) by Andrej Karpathy,
-used under the MIT license (see [LICENSE](LICENSE)). The original work is his:
-
-- the GPT-2 model, weight loading and training loop in `train_gpt2.py` come from llm.c's
-  `train_gpt2.py`, itself a version of his [nanoGPT](https://github.com/karpathy/nanoGPT);
-- the tokenization and `.bin` format in `prepare_data.py` come from llm.c's `dev/data/` scripts;
-- the TinyShakespeare text (`texts/tinyshakespeare.txt`) is from his [char-rnn](https://github.com/karpathy/char-rnn) project.
-
-This fork removes the C/CUDA code and multi-GPU support, adds explanatory comments, data preparation
-for any text, export to huggingface format and a test script, all for learning purposes.
-
-To learn this properly, use his material: the video
-[Let's reproduce GPT-2 (124M)](https://www.youtube.com/watch?v=l8pRSuU81PU), the
-[Neural Networks: Zero to Hero](https://karpathy.ai/zero-to-hero.html) series, and the original
-[llm.c](https://github.com/karpathy/llm.c) repo.
+- [Let's reproduce GPT-2 (124M)](https://www.youtube.com/watch?v=l8pRSuU81PU): Karpathy's video building
+  this model and training loop step by step.
+- [Neural Networks: Zero to Hero](https://karpathy.ai/zero-to-hero.html): his series from the basics
+  (gradients, backpropagation) up to GPT.

@@ -25,18 +25,20 @@ SEQUENCE_LENGTH = 128           # tokens per sequence (T)
 TOTAL_BATCH_SIZE = 1024         # tokens per optimizer step (multiple of B*T)
 VAL_EVERY = 10                  # print val loss every N steps
 
-PROMPTS = ["To be or", "The king said", "Love is", "In the darkness"]
+PROMPTS = ["To be or"]
 MAX_NEW_TOKENS = 60             # tokens to generate per prompt
 TEMPERATURE = 0.8               # <1 = safer, more predictable; >1 = more random
 
-from prepare_data import prepare
-from train_gpt2 import train
-from test_gpt2_model import test
+from scripts.prepare_data import prepare
+from scripts.train_gpt2 import train
+from scripts.test_gpt2_model import test
 
 # %% 1) Pre-processing
+print(f"=== STARTED PRE-PROCESSING ({TEXT_FILE}) ===")
 name = prepare(TEXT_FILE)
 
 # %% 2) Train
+print(f"\n=== STARTED TRAINING ({MODEL}, {NUM_ITERATIONS} steps) ===")
 train(
     data=name,
     model=MODEL,
@@ -49,4 +51,5 @@ train(
 )
 
 # %% 3) Test
+print("\n=== STARTED TEST ===")
 test(prompts=PROMPTS, max_new_tokens=MAX_NEW_TOKENS, temperature=TEMPERATURE)

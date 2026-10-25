@@ -22,7 +22,8 @@ TOP_P = 0.95            # only sample from the most likely tokens that together 
 # ==============================================================================
 
 # written by train_gpt2.py
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gpt2_model")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # the repo folder, one up from scripts/
+MODEL_DIR = os.path.join(ROOT_DIR, "gpt2_model")
 
 def generate_text(model, tokenizer, prompt, max_new_tokens=MAX_NEW_TOKENS, temperature=TEMPERATURE, top_p=TOP_P):
     """Generate a continuation of prompt"""
