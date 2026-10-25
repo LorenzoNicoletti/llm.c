@@ -1,7 +1,5 @@
-tqdm
-numpy<2
-torch
-tiktoken
-transformers
-datasets
-requests
+# install with: python -m pip install -r requirements.txt
+torch          # the neural network library: tensors, autograd (backprop), AdamW optimizer
+numpy          # reading and writing the token .bin files
+tiktoken       # OpenAI's fast GPT-2 tokenizer, used to turn text into tokens
+transformers   # downloads pretrained GPT-2 weights, saves and loads gpt2_model/ for testing

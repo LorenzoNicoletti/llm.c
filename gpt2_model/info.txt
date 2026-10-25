@@ -1,0 +1,2 @@
+The trained model weights are stored here.
+They are large, so they are not committed to git.
